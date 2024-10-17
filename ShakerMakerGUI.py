@@ -16,7 +16,7 @@ from PyQt5.QtWidgets import (
 
 from PyQt5.QtCore import Qt,QDir,QUrl
 from PyQt5.QtGui import QDoubleValidator, QIntValidator # Correct import
-from PyQt5.QtGui import QIcon,QBrush,QColor
+from PyQt5.QtGui import QIcon,QBrush,QColor,QFont
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
 
@@ -294,6 +294,103 @@ class MainWindow(QMainWindow):
         return single_station_group
 
 
+
+    def add_drm_stations(self):
+        """
+        Creates and returns a group box for DRM stations information.
+        """
+        # Create a group box for the DRM stations information
+        self.drm_stations_group = QGroupBox("DRM Stations Information")
+        
+        # adjust alignment to the top
+        self.drm_stations_group.setAlignment(Qt.AlignTop)
+
+        # Create a layout for the group box
+        form_layout = QGridLayout(self.drm_stations_group)
+
+        # Add layout and widget initialization here for the DRM stations
+        # latitude
+        self.drm_lat = QLineEdit()
+        self.drm_lat.setPlaceholderText("Latitude")
+        self.drm_lat.setValidator(QDoubleValidator())
+        form_layout.addWidget(QLabel("Latitude"), 0, 0)
+        form_layout.addWidget(self.drm_lat, 0, 1)
+        form_layout.addWidget(QLabel("Latitude of the center of the DRM station"), 0, 2)
+
+        # longitude
+        self.drm_long = QLineEdit()
+        self.drm_long.setPlaceholderText("Longitude")
+        self.drm_long.setValidator(QDoubleValidator())
+        form_layout.addWidget(QLabel("Longitude"), 1, 0)
+        form_layout.addWidget(self.drm_long, 1, 1)
+        form_layout.addWidget(QLabel("Longitude of the center of the DRM station"), 1, 2)
+
+        # width x
+        self.drm_width_x = QLineEdit()
+        self.drm_width_x.setPlaceholderText("Width X (m)")
+        self.drm_width_x.setValidator(QIntValidator())
+        form_layout.addWidget(QLabel("Width X (m)"), 2, 0)
+        form_layout.addWidget(self.drm_width_x, 2, 1)
+        form_layout.addWidget(QLabel("Width of the DRM station in the X direction (North-South)"), 2, 2)
+
+        # Mesh size x
+        self.drm_mesh_size_x = QLineEdit()
+        self.drm_mesh_size_x.setPlaceholderText("Mesh Size X (m)")
+        self.drm_mesh_size_x.setValidator(QIntValidator())
+        form_layout.addWidget(QLabel("Mesh Size X (m)"), 5, 0)
+        form_layout.addWidget(self.drm_mesh_size_x, 5, 1)
+        form_layout.addWidget(QLabel("Mesh size in the X direction (North-South)"), 5, 2)
+
+        # width y
+        self.drm_width_y = QLineEdit()
+        self.drm_width_y.setPlaceholderText("Width Y (m)")
+        self.drm_width_y.setValidator(QIntValidator())
+        form_layout.addWidget(QLabel("Width Y (m)"), 3, 0)
+        form_layout.addWidget(self.drm_width_y, 3, 1)
+        form_layout.addWidget(QLabel("Width of the DRM station in the Y direction (East-West)"), 3, 2)
+
+        # Mesh size y
+        self.drm_mesh_size_y = QLineEdit()
+        self.drm_mesh_size_y.setPlaceholderText("Mesh Size Y (m)")
+        self.drm_mesh_size_y.setValidator(QIntValidator())
+        form_layout.addWidget(QLabel("Mesh Size Y (m)"), 6, 0)
+        form_layout.addWidget(self.drm_mesh_size_y, 6, 1)
+        form_layout.addWidget(QLabel("Mesh size in the Y direction (East-West)"), 6, 2)
+
+        # depth
+        self.drm_depth = QLineEdit()
+        self.drm_depth.setPlaceholderText("Depth (m)")
+        self.drm_depth.setValidator(QIntValidator())
+        form_layout.addWidget(QLabel("Depth (m)"), 4, 0)
+        form_layout.addWidget(self.drm_depth, 4, 1)
+        form_layout.addWidget(QLabel("Depth of the DRM station"), 4, 2)
+
+        # Mesh size z
+        self.drm_mesh_size_z = QLineEdit()
+        self.drm_mesh_size_z.setPlaceholderText("Mesh Size Z (m)")
+        self.drm_mesh_size_z.setValidator(QIntValidator())
+        form_layout.addWidget(QLabel("Mesh Size Z (m)"), 7, 0)
+        form_layout.addWidget(self.drm_mesh_size_z, 7, 1)
+        form_layout.addWidget(QLabel("Mesh size in the Z direction (Up-Down)"), 7, 2)
+
+
+        self.drm_stations_group.setStyleSheet(self.group_style)
+        min_size = self.drm_stations_group.sizeHint() 
+        self.drm_stations_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.drm_stations_group.setFixedHeight(min_size.height()) 
+        
+        # set tht style
+        # form_layout.setS     
+
+        # Adjust the size to shrink it
+        self.drm_stations_group.adjustSize()
+
+        
+        return self.drm_stations_group
+
+
+
+
     def load_Stations(self):
         """
         Loads station information from a JSON file and populates the appropriate table.
@@ -470,16 +567,7 @@ class MainWindow(QMainWindow):
             self.terminal_output.append("Please open Google Maps and click on a location")
 
          
-    def add_drm_stations(self):
-        """
-        Creates and returns a group box for DRM stations information.
-        """
-        # Create a group box for the DRM stations information
-        drm_stations_group = QGroupBox("DRM Stations Information")
-        
-        # (You can add layout and widget initialization here for the DRM stations)
 
-        return drm_stations_group
     
     def add_Crust_information(self):
         """
@@ -515,6 +603,9 @@ class MainWindow(QMainWindow):
         # Set the first row of the table
         self.crust_table.setItem(0, 0, QTableWidgetItem("Half Space"))
         self.crust_table.setItem(0, 1, QTableWidgetItem("∞"))
+        # make the "Half Space" name and thickness bold and bigger font size for thicknees
+        # self.crust_table.item(0, 0).setFont(QFont("Arial", 10, QFont.Bold))
+        self.crust_table.item(0, 1).setFont(QFont("Arial", 20))
 
         # Make the "Half Space" name and thickness uneditable
         self.crust_table.item(0, 0).setFlags(Qt.ItemIsEnabled)
@@ -523,7 +614,7 @@ class MainWindow(QMainWindow):
         # Resize columns to fit contents while stretching the first column
         header = self.crust_table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.Stretch)  # Stretch "Layer Name" column
-        for i in range(1, self.crust_table.columnCount()):
+        for i in range(0, self.crust_table.columnCount()):
             header.setSectionResizeMode(i, QHeaderView.ResizeToContents)  # Minimize other columns
 
         # Add the table to the form layout
@@ -1054,6 +1145,7 @@ class MainWindow(QMainWindow):
         self.source_min_slip_input.setText("0.0")  # Default value
         form_layout.addWidget(QLabel("Minimum Slip"), 4, 0)
         form_layout.addWidget(self.source_min_slip_input, 4, 1)
+        form_layout.addWidget(QLabel("Minimum Slip for Filtering"), 4, 2)
 
         # File Table
         self.source_filestable = QTableWidget()
@@ -1844,28 +1936,12 @@ class MainWindow(QMainWindow):
         # Set the layout for the group box
         self.analysis_group.setLayout(form_layout)
 
-        # make the border of the group box thick
         # self.analysis_group.setStyleSheet("QGroupBox { border: 2px solid black; }")
         self.analysis_group.setStyleSheet(self.group_style)
-
-        # Add the group box to the left layout
-        # self.left_layout.addWidget(self.analysis_group)
-        # make the height of the group box to shrink
-        # self.analysis_group.setSizePolicy(QSizePolicy(QSizePolicy.Maximum, QSizePolicy.Minimum))
+        minsize = self.analysis_group.sizeHint()
         self.analysis_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
-        # Set the group box's layout to shrink based on its content
-        # Force the layout to take the smallest size possible
-        # self.analysis_group.layout().setSizeConstraint(QLayout.SetFixedSize)
-        self.analysis_group.setFixedHeight(200) 
-
-        # Adjust the size to shrink it
-        self.analysis_group.adjustSize()
-
-        # Optionally, set a minimum size to ensure it's as small as possible
-        self.analysis_group.setMinimumSize(self.analysis_group.sizeHint())
-        # for widget in self.analysis_group.findChildren(QWidget):
-        #     widget.setSizePolicy(QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum))
+        self.analysis_group.setFixedHeight(minsize.height()) 
         return self.analysis_group
 
     def choose_directory(self):
@@ -2070,10 +2146,26 @@ class MainWindow(QMainWindow):
     }
     """
 
+    grid_style = """           
+
+            QLabel {
+                font-weight: bold;  /* Bold labels */
+                color: #333;  /* Dark gray text color */
+                padding: 5px;  /* Padding around labels */
+            }
+            QLineEdit {
+                border: 1px solid #ccc;  /* Light gray border */
+                border-radius: 5px;  /* Rounded corners */
+                background-color: #fff;  /* White background */
+            }
+        """
+
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    font = QFont("Arial",8)  # Replace "YourFontFamily" with the desired font family
+    app.setFont(font)
 
     # Create and display the main window
     window = MainWindow()
