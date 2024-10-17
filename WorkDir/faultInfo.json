@@ -1,0 +1,16 @@
+{
+    "latitude":-33.48748,
+    "longitude":-70.40528,
+    "ymean": 369.44640134225,
+    "xmean": 6293.78510042006,
+    "epsg":"EPSG:5361",
+    "name":"Sanramon fault",
+    "M0":6.7,
+    "Faultfilenames": [
+        "fault.json"
+    ],
+    "SourceTimeFunction": {
+        "type": "Discrete",
+        "filename": "SourceTimeFunction.py"
+    }
+}

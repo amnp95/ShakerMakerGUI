@@ -1,0 +1,7 @@
+{
+    "station_type": "single",
+    "station_info": [
+        {"Latitude": -33.5, "Longitude": -70.5, "Depth": 5},
+        {"Latitude": -33.6, "Longitude": -70.6, "Depth": 1}
+    ]
+}
