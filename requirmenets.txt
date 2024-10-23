@@ -1,1 +1,21 @@
-pip install wget
+pip install requests
+pip install pyvista[all]
+pip install pyvistaqt
+pip install pyproj
+pip install geopandas
+pip install plotly
+pip install geopy
+pip install PyQt5
+pip install PyQtWebEngine
+
+
+
+conda install anaconda::pyqt
+conda install conda-forge::pyqtwebengine
+conda-forge::requests
+conda install -c conda-forge pyvista
+conda install -c conda-forge pyvistaqt
+conda install conda-forge::pyproj
+conda install conda-forge::geopandas
+conda install conda-forge::plotly
+conda install conda-forge::geopy
