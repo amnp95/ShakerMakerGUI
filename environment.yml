@@ -1,0 +1,14 @@
+name: ShakerMakerGUI
+channels:
+  - conda-forge
+  - anaconda
+dependencies:
+  - pyqt
+  - pyqtwebengine
+  - requests
+  - pyvista
+  - pyvistaqt
+  - pyproj
+  - geopandas
+  - plotly
+  - geopy
