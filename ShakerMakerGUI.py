@@ -33,6 +33,7 @@ import pandas as pd
 import plotly.express as px
 from shapely.geometry import Point
 from geopy.distance import geodesic
+import shutil
 
 
 
@@ -161,7 +162,7 @@ class MainWindow(QMainWindow):
 
         # Create the stations dropdown (for selecting between different station types)
         self.stations_dropdown = QComboBox()
-        self.stations_dropdown.addItems(["Single Station", "DRM Stations"])
+        self.stations_dropdown.addItems(["Single Stations", "DRM Stations"])
         self.stations_dropdown.setStyleSheet(self.drop_down_style)  # Set the dropdown style
 
         # Create a stacked widget for displaying station information
@@ -842,6 +843,12 @@ class MainWindow(QMainWindow):
                 c5[j] = source['slip']
 
             # Filter the sources based on the minimum slip
+            #check that minum slip can be converted to float
+            try:
+                minslip = float(self.source_min_slip_input.text())
+            except ValueError:
+                self.terminal_output.append("<font color='red'>Error: Minimum slip must be a number</font>")
+                return 
             minslip = float(self.source_min_slip_input.text())
             indicies = np.where(c5 > minslip)[0]
             x, y, z, c1, c2, c3, c4, c5 = x[indicies], y[indicies], z[indicies], c1[indicies], c2[indicies], c3[indicies], c4[indicies], c5[indicies]
@@ -1183,8 +1190,6 @@ class MainWindow(QMainWindow):
         self.source_group.setStyleSheet(self.group_style)  # Thick border for the group box
 
         return self.source_group
-
-
 
 
 
@@ -1923,15 +1928,32 @@ class MainWindow(QMainWindow):
             os.makedirs(f"{ShakerMakerPath}/WorkDir")
 
         self.dir_input = QLineEdit()
-        form_layout.addWidget(QLabel("Working Directory"), 8,0)
-        form_layout.addWidget(self.dir_input, 8,1)
+        # form_layout.addWidget(QLabel("Working Directory"), 8,0)
+        # form_layout.addWidget(self.dir_input, 8,1)
         dir_button = QPushButton("Choose")
         dir_button.clicked.connect(self.choose_directory)
         dir_button.setStyleSheet(self.button_style)
         #  put default directory in the input field
         self.dir_input.setText(f"{ShakerMakerPath}"   + "/WorkDir")
 
-        form_layout.addWidget(dir_button, 8,2)
+        # form_layout.addWidget(dir_button, 8,2)
+
+
+
+        # Add push button to create the model
+        self.model_dir = QLineEdit()
+        self.model_dir.setText(f"{ShakerMakerPath}"   + "/Model")
+        form_layout.addWidget(QLabel("Model Directory"), 8,0)
+        form_layout.addWidget(self.model_dir, 8,1)
+        form_layout.addWidget(QLabel("Directory to save the model"), 8,2)
+
+
+        
+        create_button = QPushButton("Create Model")
+        create_button.setStyleSheet(self.button_style)
+        create_button.clicked.connect(self.create_model)
+        form_layout.addWidget(create_button, 9,0,1,3)
+
 
         # Set the layout for the group box
         self.analysis_group.setLayout(form_layout)
@@ -1942,7 +1964,504 @@ class MainWindow(QMainWindow):
         self.analysis_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         self.analysis_group.setFixedHeight(minsize.height()) 
+
+
+        # create deafulat values for the input fields
+        self.dt_input.setText("0.0025")
+        self.nfft_input.setText("16384")
+        self.dk_input.setText("0.2")
+        self.tmin_input.setText("0.0")
+        self.tmax_input.setText("100.0")
+        self.dh_input.setText("40.0")
+        self.dv_rec_input.setText("5.0")
+        self.dv_src_input.setText("200")
+
         return self.analysis_group
+    
+    
+
+    def create_model(self):
+        """
+        This method gather all the infomation and create the model in the working directory
+        """
+        # Create Model folder in the working directory
+        if not os.path.exists(self.model_dir.text()):
+            os.makedirs(self.model_dir.text())
+            if not os.path.exists(f"{self.model_dir.text()}"):
+                os.makedirs(f"{self.model_dir.text()}")
+        else:
+            if not os.path.exists(f"{self.model_dir.text()}"):
+                os.makedirs(f"{self.model_dir.text()}")
+
+        
+        # Create the model
+        # Check  that fault metadata file is set
+        if self.source_meta_input == None or self.source_meta_input.text() == "":
+            self.terminal_output.append("<font color='red'>Error: Fault metadata file is not set</font>")
+            self.terminal_output.append("Please set the fault metadata file")
+            return
+        
+        if self.source_time_input == None or self.source_time_input.text() == "":
+            self.terminal_output.append("<font color='red'>Error: Source time function file is not set</font>")
+            self.terminal_output.append("Please set the source time function file")
+            return
+        
+        # check if the files exist
+        if not os.path.exists(self.source_meta_input.text()):
+            self.terminal_output.append("<font color='red'>Error: Fault metadata file does not exist</font>")
+            self.terminal_output.append("Please set the fault metadata file")
+            return
+    
+        if not os.path.exists(self.source_time_input.text()):
+            self.terminal_output.append("<font color='red'>Error: Source time function file does not exist</font>")
+            self.terminal_output.append("Please set the source time function file")
+            return
+
+        # read minimum slip
+        # check if the minimum slip can be converted to a float
+        try:
+            minslip = float(self.source_min_slip_input.text())
+        except ValueError:
+            self.terminal_output.append("<font color='red'>Error: Minimum slip must be a float number</font>")
+            return 
+        minslip = float(self.source_min_slip_input.text())
+    
+        # read the files in table 
+        # fault files in the table
+        fault_files = []
+        numpoints = 0
+        for row in range(self.source_filestable.rowCount()):
+            # check if the row is empty
+            if self.source_filestable.item(row, 0) == None :
+                self.terminal_output.append("<font color='red'>Error: Fault file is not set</font>")
+                self.terminal_output.append("Please set the fault files in the table")
+                return
+            if self.source_filestable.item(row, 0).text() == "":
+                self.terminal_output.append("<font color='red'>Error: Fault file is not set</font>")
+                self.terminal_output.append("Please set the fault files in the table")
+                return
+            # check if the file exists
+            if not os.path.exists(self.source_filestable.item(row, 0).text()):
+                self.terminal_output.append("<font color='red'>Error: Fault file does not exist</font>")
+                self.terminal_output.append("Please set the fault files in the table")
+                return
+            # just 
+            filename = self.source_filestable.item(row, 0).text()
+
+            # open the file and read the json file
+            with open(filename, 'r') as file:
+                fault = json.load(file)
+
+
+            if fault == None:
+                self.terminal_output.append("<font color='red'>Error: Fault file is empty</font>")
+                return
+            
+            # iterate through the file points and filter based on the minimum slip
+            # fault is list of dictionaries
+            if minslip < 1e-13:
+                minslip = 0
+            if minslip > 0:
+                # print waiting warning message
+                self.terminal_output.append("<font color='orange'>Warning: Filtering fault file based on minimum slip</font>")
+                
+                indicies = []
+                for i, point in enumerate(fault):
+                    if point["slip"] > minslip:
+                        indicies.append(i)
+                
+                # filter the fault file based on the indicies
+                fault = [fault[i] for i in indicies]
+
+            # write the filtered fault file to the model directory
+            with open(f"{self.model_dir.text()}/{os.path.basename(filename)}", 'w') as file:
+                json.dump(fault, file, indent=4)
+
+            numpoints += len(fault)
+
+            # drop the path and get the file name
+            fault_files.append(os.path.basename(filename))
+
+
+        # print the number of points in the fault files
+        self.terminal_output.append(f"Number of points in the fault files: {numpoints}")
+
+
+        # copy the source time function file to the model directory
+        shutil.copy(self.source_time_input.text(), self.model_dir.text())
+        
+
+        # load the fault metadata file
+        with open(self.source_meta_input.text(), 'r') as file:
+            fault_info = json.load(file)
+
+        # edit the fault info
+        # fault_info["min_slip"] = minslip
+
+        fault_info["Faultfilenames"] = fault_files
+        fault_info["SourceTimeFunction"]["filename"] = os.path.basename(self.source_time_input.text())
+
+        # lat and lon
+        # check if the source lat and lon can be converted to a float
+        try:
+            lat = float(self.source_lat_input.text())
+            lon = float(self.source_lon_input.text())
+        except ValueError:
+            self.terminal_output.append("<font color='red'>Error: Source latitude and longitude must be float numbers</font>")
+            return
+        lat = float(self.source_lat_input.text())
+        lon = float(self.source_lon_input.text())
+
+
+        fault_info["latitude"] = lat
+        fault_info["longitude"] = lon
+
+        # write the fault info to the model directory
+        with open(f"{self.model_dir.text()}/faultInfo.json", 'w') as file:
+            json.dump(fault_info, file, indent=4)
+
+        # copy the Scripts\ShakerMakermodel.py to the model directory
+        ShakerMakerPath = os.path.dirname(os.path.abspath(__file__)).replace("\\", "/")
+        shutil.copy(f"{ShakerMakerPath}/Scripts/ShakerMakermodel.py", self.model_dir.text())
+
+
+        metadata = {}
+        metadata["analysisdata"] = {}
+        # check if the dt is not None
+        if self.dt_input == None or self.dt_input.text() == "":
+            self.terminal_output.append("<font color='red'>Error: dt is not set</font>")
+            self.terminal_output.append("Please set the dt")
+            return
+        try:
+            dt = float(self.dt_input.text())
+        except ValueError:
+            self.terminal_output.append("<font color='red'>Error: dt must be a float number</font>")
+            return
+        metadata["analysisdata"]["dt"] = dt
+
+        # check if the nfft is not None
+        if self.nfft_input == None or self.nfft_input.text() == "":
+            self.terminal_output.append("<font color='red'>Error: nfft is not set</font>")
+            self.terminal_output.append("Please set the nfft")
+            return
+        try:
+            nfft = int(self.nfft_input.text())
+        except ValueError:
+            self.terminal_output.append("<font color='red'>Error: nfft must be an integer number</font>")
+            return
+        
+        metadata["analysisdata"]["nfft"] = nfft
+
+        # check if the dk is not None
+        if self.dk_input == None or self.dk_input.text() == "":
+            self.terminal_output.append("<font color='red'>Error: dk is not set</font>")
+            self.terminal_output.append("Please set the dk")
+            return
+        try:
+            dk = float(self.dk_input.text())
+        except ValueError:
+            self.terminal_output.append("<font color='red'>Error: dk must be a float number</font>")
+            return
+        
+        metadata["analysisdata"]["dk"] = dk
+
+        # check if the tmin is not None
+        if self.tmin_input == None or self.tmin_input.text() == "":
+            self.terminal_output.append("<font color='red'>Error: tmin is not set</font>")
+            self.terminal_output.append("Please set the tmin")
+            return
+        try:
+            tmin = float(self.tmin_input.text())
+        except ValueError:
+            self.terminal_output.append("<font color='red'>Error: tmin must be a float number</font>")
+            return
+        
+        metadata["analysisdata"]["tmin"] = tmin
+
+        # check if the tmax is not None
+        if self.tmax_input == None or self.tmax_input.text() == "":
+            self.terminal_output.append("<font color='red'>Error: tmax is not set</font>")
+            self.terminal_output.append("Please set the tmax")
+            return
+        try:
+            tmax = float(self.tmax_input.text())
+        except ValueError:
+            self.terminal_output.append("<font color='red'>Error: tmax must be a float number</font>")
+            return
+        
+        metadata["analysisdata"]["tmax"] = tmax
+
+        # check if the dh is not None
+        if self.dh_input == None or self.dh_input.text() == "":
+            self.terminal_output.append("<font color='red'>Error: dh is not set</font>")
+            self.terminal_output.append("Please set the dh")
+            return
+        try:
+            dh = float(self.dh_input.text())
+        except ValueError:
+            self.terminal_output.append("<font color='red'>Error: dh must be a float number</font>")
+            return
+        
+        metadata["analysisdata"]["dh"] = dh
+
+        # check if the dv_rec is not None
+        if self.dv_rec_input == None or self.dv_rec_input.text() == "":
+            self.terminal_output.append("<font color='red'>Error: dv_rec is not set</font>")
+            self.terminal_output.append("Please set the dv_rec")
+            return
+        try:
+            dv_rec = float(self.dv_rec_input.text())
+        except ValueError:
+            self.terminal_output.append("<font color='red'>Error: dv_rec must be a float number</font>")
+            return
+        
+        metadata["analysisdata"]["delta_v_rec"] = dv_rec
+
+        # check if the dv_src is not None
+        if self.dv_src_input == None or self.dv_src_input.text() == "":
+            self.terminal_output.append("<font color='red'>Error: dv_src is not set</font>")
+            self.terminal_output.append("Please set the dv_src")
+            return
+        try:
+            dv_src = float(self.dv_src_input.text())
+        except ValueError:
+            self.terminal_output.append("<font color='red'>Error: dv_src must be a float number</font>")
+            return
+        
+        metadata["analysisdata"]["delta_v_src"] = dv_src
+
+
+
+        metadata["crustdata"] =  []
+
+        # loop over crust files in the table
+        rowindex = 0
+        for row in range(self.crust_table.rowCount()):
+            layerinfo = {}
+            # check if the row is empty
+            if self.crust_table.item(row, 0) == None :
+                self.terminal_output.append("<font color='red'>Error: layer name is not set</font>")
+                self.terminal_output.append("Please set the layer name in the table")
+                return
+            if self.crust_table.item(row, 0).text() == "":
+                self.terminal_output.append("<font color='red'>Error: layer name is not set</font>")
+                self.terminal_output.append("Please set the layer name in the table")
+                return
+            
+            layerinfo["name"] = self.crust_table.item(row, 0).text()
+
+            # check if the thickness is not None
+            if self.crust_table.item(row, 1) == None :
+                self.terminal_output.append("<font color='red'>Error: thickness is not set</font>")
+                self.terminal_output.append("Please set the thickness in the table")
+                return
+            if self.crust_table.item(row, 1).text() == "":
+                self.terminal_output.append("<font color='red'>Error: thickness is not set</font>")
+                self.terminal_output.append("Please set the thickness in the table")
+                return
+            if rowindex == (self.crust_table.rowCount()-1):
+                layerinfo["thick"] = 0
+            else:
+                try:
+                    layerinfo["thick"] = float(self.crust_table.item(row, 1).text())
+                except ValueError:
+                    self.terminal_output.append("<font color='red'>Error: thickness must be a float number</font>")
+                    return
+            
+            # check if the vp is not None
+            if self.crust_table.item(row, 2) == None :
+                self.terminal_output.append("<font color='red'>Error: vp is not set</font>")
+                self.terminal_output.append("Please set the vp in the table")
+                return
+            if self.crust_table.item(row, 2).text() == "":
+                self.terminal_output.append("<font color='red'>Error: vp is not set</font>")
+                self.terminal_output.append("Please set the vp in the table")
+                return
+            try:
+                layerinfo["vp"] = float(self.crust_table.item(row, 2).text())
+            except ValueError:
+                self.terminal_output.append("<font color='red'>Error: vp must be a float number</font>")
+                return
+            
+            # check if the vs is not None
+            if self.crust_table.item(row, 3) == None :
+                self.terminal_output.append("<font color='red'>Error: vs is not set</font>")
+                self.terminal_output.append("Please set the vs in the table")
+                return
+            if self.crust_table.item(row, 3).text() == "":
+                self.terminal_output.append("<font color='red'>Error: vs is not set</font>")
+                self.terminal_output.append("Please set the vs in the table")
+                return
+            try:
+                layerinfo["vs"] = float(self.crust_table.item(row, 3).text())
+            except ValueError:
+                self.terminal_output.append("<font color='red'>Error: vs must be a float number</font>")
+                return
+            
+            # check if the rho is not None
+            if self.crust_table.item(row, 4) == None :
+                self.terminal_output.append("<font color='red'>Error: rho is not set</font>")
+                self.terminal_output.append("Please set the rho in the table")
+                return
+            if self.crust_table.item(row, 4).text() == "":
+                self.terminal_output.append("<font color='red'>Error: rho is not set</font>")
+                self.terminal_output.append("Please set the rho in the table")
+                return
+            try:
+                layerinfo["rho"] = float(self.crust_table.item(row, 4).text())
+            except ValueError:
+                self.terminal_output.append("<font color='red'>Error: rho must be a float number</font>")
+                return
+            
+            # check if the Qp is not None
+            if self.crust_table.item(row, 5) == None :
+                self.terminal_output.append("<font color='red'>Error: Qp is not set</font>")
+                self.terminal_output.append("Please set the Qp in the table")
+                return
+            if self.crust_table.item(row, 5).text() == "":
+                self.terminal_output.append("<font color='red'>Error: Qp is not set</font>")
+                self.terminal_output.append("Please set the Qp in the table")
+                return
+            try:
+                layerinfo["Qa"] = float(self.crust_table.item(row, 5).text())
+            except ValueError:
+                self.terminal_output.append("<font color='red'>Error: Qp must be a float number</font>")
+                return
+            
+            # check if the Qs is not None
+            if self.crust_table.item(row, 6) == None :
+                self.terminal_output.append("<font color='red'>Error: Qs is not set</font>")
+                self.terminal_output.append("Please set the Qs in the table")
+                return
+            if self.crust_table.item(row, 6).text() == "":
+                self.terminal_output.append("<font color='red'>Error: Qs is not set</font>")
+                self.terminal_output.append("Please set the Qs in the table")
+                return
+            try:
+                layerinfo["Qb"] = float(self.crust_table.item(row, 6).text())
+            except ValueError:
+                self.terminal_output.append("<font color='red'>Error: Qs must be a float number</font>")
+                return
+            
+            # add the layer info to metadata
+            metadata["crustdata"].append(layerinfo)
+
+            rowindex += 1
+
+
+
+        metadata["stationdata"] = {}
+
+        # check if the station type is not None
+        if self.stations_dropdown.currentText() == "Single Stations":
+            metadata["stationdata"]["stationType"] = "single"
+            metadata["stationdata"]["name"] = "Station provided by user"
+            metadata["stationdata"]["Singlestations"] = []
+
+            # loop over the station files in the table
+            if self.single_stations_table.rowCount() == 0:
+                self.terminal_output.append("<font color='red'>Error: No station file is set</font>")
+                self.terminal_output.append("Please set the station files in the table")
+                return
+
+            for row in range(self.single_stations_table.rowCount()):
+                stationInfo = {}
+                # check if lat 
+                if self.single_stations_table.item(row, 0) == None :
+                    self.terminal_output.append("<font color='red'>Error: Station latitude is not set</font>")
+                    self.terminal_output.append("Please set the station latitude in the table")
+                    return
+                if self.single_stations_table.item(row, 0).text() == "":
+                    self.terminal_output.append("<font color='red'>Error: Station latitude is not set</font>")
+                    self.terminal_output.append("Please set the station latitude in the table")
+                    return
+                try:
+                    lat = float(self.single_stations_table.item(row, 0).text())
+                except ValueError:
+                    self.terminal_output.append("<font color='red'>Error: Station latitude must be a float number</font>")
+                    return
+                
+                stationInfo["latitude"] = lat
+
+                # check if lon
+                if self.single_stations_table.item(row, 1) == None :
+                    self.terminal_output.append("<font color='red'>Error: Station longitude is not set</font>")
+                    self.terminal_output.append("Please set the station longitude in the table")
+                    return
+                if self.single_stations_table.item(row, 1).text() == "":
+                    self.terminal_output.append("<font color='red'>Error: Station longitude is not set</font>")
+                    self.terminal_output.append("Please set the station longitude in the table")
+                    return
+                try:
+                    lon = float(self.single_stations_table.item(row, 1).text())
+                except ValueError:
+                    self.terminal_output.append("<font color='red'>Error: Station longitude must be a float number</font>")
+                    return
+                
+                stationInfo["longitude"] = lon
+
+                # check if the elevation is not None
+                if self.single_stations_table.item(row, 2) == None :
+                    self.terminal_output.append("<font color='red'>Error: Station depth is not set</font>")
+                    self.terminal_output.append("Please set the station depth in the table")
+                    return
+                if self.single_stations_table.item(row, 2).text() == "":
+                    self.terminal_output.append("<font color='red'>Error: Station depth is not set</font>")
+                    self.terminal_output.append("Please set the station depth in the table")
+                    return
+                try:
+                    depth = float(self.single_stations_table.item(row, 2).text())
+                except ValueError:
+                    self.terminal_output.append("<font color='red'>Error: Station depth must be a float number</font>")
+                    return
+                
+                stationInfo["depth"] = depth
+                stationInfo["metadata"] = {"filter_parameters": {"fmax": 10},"filter_results": False, "name": "Station 1"}
+                
+                # add the station info to metadata
+                metadata["stationdata"]["Singlestations"].append(stationInfo)
+
+
+
+        if self.stations_dropdown.currentText() == "DRM Stations":
+            # print not implemented error
+            self.terminal_output.append("<font color='red'>Error: DRM Stations is not implemented</font>")
+            return
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        # write the metadata to the model directory
+        with open(f"{self.model_dir.text()}/metadata.json", 'w') as file:
+            json.dump(metadata, file, indent=4)
+
+
+        # print success message and the model directory and how to run the model
+        self.terminal_output.append("<font color='green'>Success: Model created successfully</font>")
+        self.terminal_output.append(f"\t Model directory: {self.model_dir.text()}")
+        self.terminal_output.append("\t To run the model, open the model directory and run the command:")
+        self.terminal_output.append("\t mpirun/mpiexec -n <number of processors> python ShakerMakermodel.py")
+
+
+
+        
+
+
+
+
 
     def choose_directory(self):
         # Open a file dialog to select a directory
