@@ -40,9 +40,9 @@ ShakerMaker is an application designed for earthquake engineers and seismologist
 
 1. Launch the application:
    ```bash
-   python main.py
+   python ShakerMakerGUI.py
    ```
-
+<!--
 2. Set the working directory in the GUI.
 
 3. Select the desired parameters for the fault model (country, fault type, magnitude, etc.).
