@@ -14,12 +14,12 @@ ShakerMaker is an application designed for earthquake engineers and seismologist
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/ShakerMaker.git
+   git clone https://github.com/amnp95/ShakerMakerGUI.git
    ```
 
 2. Navigate to the project directory:
    ```bash
-   cd ShakerMaker
+   cd ShakerMakerGUI
    ```
 
 3. **Install required dependencies**:
